@@ -1,0 +1,148 @@
+---
+title: "Homework 8"
+date: "2023-03-30"
+output: pdf_document
+---
+
+# Homework 8
+
+# Modeling wastewater PH among regulated facilities in Chile
+
+In this homework we are going to use PH data sampled from the wastewater of regulated facilites in Chile. The PH variable is stored in avg.value in the chilePH.csv dataset. There are 13 other possible predictors of PH listed in the comments below.
+
+```{r, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(glmnet)
+library(caret)
+chilePH <- read_csv("chilePHdata.csv")
+options(scipen = 99, digits = 2)
+
+## Remove missing values
+(chilePH1 <- na.omit(chilePH))
+dim(chilePH1)
+
+# Remove bad PH values
+chilePH1 <- chilePH1 %>%
+  filter(avg.val <= 14, avg.val >= 0)
+dim(chilePH1)
+
+# Calculate absolute deviation
+chilePH1 <- chilePH1 %>%
+  mutate(abs.dev = log(abs(avg.val - 7) + 0.1))
+hist(chilePH1$abs.dev, breaks = "FD")
+
+# Get regressor matrix
+X <- chilePH1 %>%
+  select(-abs.dev, -avg.val, -period, -discharge, -plant.ID)
+X <- model.matrix( ~ ., data = X)[, -1]
+y <- chilePH1 %>%
+  select(abs.dev)
+y <- unlist(y)
+
+
+# period: Time period (yyyy-mm)
+# avg.val: Average Ph value
+# measurement.type: AC (continuous measurement), AU (lab sample)
+# discharge: Report discharge (SI, NO, NA)
+# on.time: Emissions reported on time (NO/No APLICA/SI)
+# all.params: Reported all parameters required by regulation (SI/NO/NO APLICA)
+# meets.frequency: Firm  meets the reporting frequency required by regulation (SI/NO/NO APLICA)
+# resamples: Is a resampling report provided (NO/SI/NO APLICA)
+# resample.report: Does the resampling report have the required paramters (Entrega parametros exigidos en remuestreo, NO, NO APLICA, NULL, SI)
+# num.params.month: Number of parameters required to report each month
+# num.riles.infrac: Number of previous water environmental infractions
+# num.noriles.infrac: Number of previous non-water environmental infractions
+# num.noriles.infrac: Number of citizen complaints related to the firm
+# num.permits: Number of environmental permits
+
+```
+
+## Part 1: Ridge regression
+
+Use ridge regression (`cv.glmnet`) to predict the absolute deviation of PH from 7 based on any transformations you used in Homework 6. What is the optimal lambda selected using cross-validation? How does it change the estimates relative to ordinary least squares (OLS)?
+
+```{r, warning = FALSE, message = FALSE}
+model = cv.glmnet(x=X, y=y, alpha=0)
+plot(model)
+
+cv_mse_ridge <- model$cvm[model$lambda == model$lambda.min]
+cv_mse_ridge
+opt_lambda <- model$lambda.min
+cat("Optimal Lambda:", opt_lambda)
+```
+
+## Part 2: Lasso regression
+
+Repeat part 1 for the Lasso. Are any variables removed from the model?
+
+```{r, warning = FALSE, message = FALSE}
+model1 = cv.glmnet(x=X, y=y, alpha=1.0)
+plot(model1)
+coef(model1)
+
+cv_mse_lasso <- model1$cvm[model$lambda == model1$lambda.min]
+cv_mse_lasso
+opt_lambda1 <- model1$lambda.min
+cat("Optimal Lambda:", opt_lambda1)
+```
+Yes 11 variables have been removed from the model.  
+## Part 3: Elastic net
+
+In ridge we use `alpha=0` for ridge and `alpha=1` for lasso.
+
+Elasticnet refers to blending the ridge and lasso loss, and can take any value between 0.0 and 1.0.
+
+Predict PH using the elastic net with $\alpha = 1/2$. How does the result compare to ridge or Lasso?
+
+```{r, warning = FALSE, message = FALSE}
+model2 = cv.glmnet(x=X, y=y, alpha=0.5)
+plot(model2)
+
+cv_mse_elas <- model2$cvm[model2$lambda == model2$lambda.min]
+cv_mse_elas
+
+opt_lambda2 <- model2$lambda.min
+cat("Optimal Lambda:", opt_lambda2)
+```
+The regularization in ridge model seems to be the highest in Ridge model. 
+This means that the overfitting in ridge would be the least.
+## Part 4: Hyperparameter selection using cross-validation
+
+Use cross-validation to select the hyper parameters for Ridge, Lasso, and Elastic Net (both lambda and alpha). You will find the `caret` package useful here.
+
+```{r, warning = FALSE, message = FALSE, eval = FALSE}
+
+ctrl <- trainControl(method = "cv", number = 10)
+
+rdg <- train(x = X, y = y, method = "ridge", tuneLength = 10, trControl = ctrl)
+ridge$bestTune
+
+las <- train(x = X, y = y, method = "lasso", tuneLength = 10, trControl = ctrl)
+lasso$bestTune
+
+elas <- train(x = X, y = y, method = "glmnet", tuneLength = 10, trControl = ctrl)
+elas$bestTune
+
+```
+
+## Part 5: Test set comparison
+
+Instead of using cross-validation twice as in Part 6, set aside 20% of the data as a test set. Use the remaining data to select the hyperparameters of each model, then make predictions on the test set.
+
+```{r, warning = FALSE, message = FALSE, eval = FALSE}
+chilePHn = chilePH1 %>%
+  select(-abs.dev, -avg.val, -period, -discharge, -plant.ID, -on.time)
+chilePHn$y = y
+
+train <- head(chilePHn, 0.8*length(y))
+test <- tail(chilePHn, 0.2*length(y))
+
+
+fmodel = train(y~., data=train ,method = "glmnet")
+
+pred_y <- predict(fmodel, test)
+
+print(fmodel)
+
+mean(test$y-pred_y)
+```

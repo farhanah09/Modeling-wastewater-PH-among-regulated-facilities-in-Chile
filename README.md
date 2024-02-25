@@ -34,9 +34,9 @@ Example: Elastic Net with an alpha of 0.5 demonstrated superior performance on t
 
 ## Repository Structure
 
-chilePHdata.csv: Original dataset.
-wastewaster_model.rmd
-README.md: This file.
+- chilePHdata.csv: Original dataset.
+- wastewaster_model.rmd
+- README.md: This file.
 
 ## Dependencies
 

@@ -1,3 +1,5 @@
+<a href="https://app.commanddash.io/agent?github=https://github.com/farhanah09/Modeling-wastewater-PH-among-regulated-facilities-in-Chile"><img src="https://img.shields.io/badge/AI-Code%20Gen-EB9FDA"></a>
+
 # Overview
 
 This project investigates factors contributing to deviations in wastewater pH levels among regulated facilities in Chile. Utilizing a dataset containing pH measurements, reporting compliance metrics, and facility information, the goal is to:
